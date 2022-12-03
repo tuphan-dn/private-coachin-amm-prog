@@ -10,6 +10,7 @@ import {
 import { Program } from "@project-serum/anchor";
 import { PrivateCoachingAmmProg } from "../target/types/private_coaching_amm_prog";
 import { initializeAccount, initializeMint, mintTo } from "./pretest";
+import { expect } from "chai";
 
 describe("private-coaching-amm-prog", () => {
   // Configure the client to use the local cluster.
@@ -85,9 +86,9 @@ describe("private-coaching-amm-prog", () => {
         yToken: yToken.publicKey,
         srcXAccount: xTokenAccount,
         srcYAccount: yTokenAccount,
-        treasurer: treasurer,
-        xTreasury: xTreasury,
-        yTreasury: yTreasury,
+        treasurer,
+        xTreasury,
+        yTreasury,
         systemProgram: web3.SystemProgram.programId,
         tokenProgram: utils.token.TOKEN_PROGRAM_ID,
         associatedTokenProgram: utils.token.ASSOCIATED_PROGRAM_ID,
@@ -95,6 +96,40 @@ describe("private-coaching-amm-prog", () => {
       })
       .signers([pool])
       .rpc();
-    console.log("Your transaction signature", txId);
+    expect(txId).to.be.an("string");
+  });
+
+  it("Get data #1", async () => {
+    const { x, y } = await program.account.pool.fetch(pool.publicKey);
+    expect(x.eq(new BN("500000000000"))).to.be.true;
+    expect(y.eq(new BN("500000000000"))).to.be.true;
+  });
+
+  it("Swap", async () => {
+    const txId = await program.methods
+      .swap(new BN("5000000000"))
+      .accounts({
+        authority: provider.wallet.publicKey,
+        pool: pool.publicKey,
+        xToken: xToken.publicKey,
+        yToken: yToken.publicKey,
+        srcXAccount: xTokenAccount,
+        dstYAccount: yTokenAccount,
+        treasurer,
+        xTreasury,
+        yTreasury,
+        systemProgram: web3.SystemProgram.programId,
+        tokenProgram: utils.token.TOKEN_PROGRAM_ID,
+        associatedTokenProgram: utils.token.ASSOCIATED_PROGRAM_ID,
+        rent: web3.SYSVAR_RENT_PUBKEY,
+      })
+      .rpc();
+    expect(txId).to.be.an("string");
+  });
+
+  it("Get data #2", async () => {
+    const { x, y } = await program.account.pool.fetch(pool.publicKey);
+    expect(x.eq(new BN("505000000000"))).to.be.true;
+    expect(y.eq(new BN("495049504950"))).to.be.true;
   });
 });

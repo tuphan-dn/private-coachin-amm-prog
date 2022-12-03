@@ -22,8 +22,8 @@ pub struct Swap<'info> {
   #[account(
     init_if_needed,
     payer = authority,
-    associated_token::mint = x_token,
-    associated_token::authority = treasurer
+    associated_token::mint = y_token,
+    associated_token::authority = authority
   )]
   pub dst_y_account: Account<'info, token::TokenAccount>,
   #[account(seeds = [b"treasurer", &pool.key().to_bytes()], bump)]
@@ -47,7 +47,7 @@ pub fn exec(ctx: Context<Swap>, a: u64) -> Result<()> {
     return err!(ErrorCode::InvalidAmount);
   }
 
-  let b: u64 = 0;
+  let (b, x_, y_) = pool.swap(a).ok_or(ErrorCode::Overflow)?;
 
   let transfer_a_ctx = CpiContext::new(
     ctx.accounts.token_program.to_account_info(),
@@ -76,8 +76,8 @@ pub fn exec(ctx: Context<Swap>, a: u64) -> Result<()> {
   );
   token::transfer(transfer_b_ctx, b)?;
 
-  pool.x = pool.x.checked_add(a).ok_or(ErrorCode::Overflow)?;
-  pool.y = pool.y.checked_sub(a).ok_or(ErrorCode::Overflow)?;
+  pool.x = x_;
+  pool.y = y_;
 
   emit!(SwapEvent {
     authority: pool.authority.key(),
