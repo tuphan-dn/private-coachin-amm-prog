@@ -5,6 +5,9 @@ pub mod constants;
 pub mod instructions;
 pub use instructions::*;
 
+pub mod schema;
+pub use schema::*;
+
 pub mod errors;
 pub use errors::*;
 
@@ -16,12 +19,12 @@ pub mod private_coaching_amm_prog {
 
   use super::*;
 
-  pub fn create_ppol(ctx: Context<CreatePool>) -> Result<()> {
-    create_pool::exec(ctx)
+  pub fn create_ppol(ctx: Context<CreatePool>, x: u64, y: u64) -> Result<()> {
+    create_pool::exec(ctx, x, y)
   }
 
-  pub fn swap(ctx: Context<Swap>) -> Result<()> {
-    swap::exec(ctx)
+  pub fn swap(ctx: Context<Swap>, a: u64) -> Result<()> {
+    swap::exec(ctx, a)
   }
 }
 
