@@ -7,7 +7,7 @@ private_coaching_amm_prog = "AT9ApNUHABR9bLHzBbKKz2u19U6tzp4SifkKBfX4SpqM"
 url = "https://anchor.projectserum.com"
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "/Users/tuphan/.config/solana/id.json"
 
 [scripts]

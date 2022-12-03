@@ -8,7 +8,9 @@ pub struct CreatePoolEvent {
   pub authority: Pubkey,
   pub pool: Pubkey,
   pub x: u64,
+  pub x_token: Pubkey,
   pub y: u64,
+  pub y_token: Pubkey,
 }
 
 #[derive(Accounts)]
@@ -75,13 +77,17 @@ pub fn exec(ctx: Context<CreatePool>, x: u64, y: u64) -> Result<()> {
   // Create pool data
   pool.authority = ctx.accounts.authority.key();
   pool.x = x;
+  pool.x_token = ctx.accounts.x_token.key();
   pool.y = y;
+  pool.y_token = ctx.accounts.y_token.key();
 
   emit!(CreatePoolEvent {
     authority: pool.authority.key(),
     pool: pool.key(),
     x: pool.x,
+    x_token: pool.x_token,
     y: pool.y,
+    y_token: pool.y_token,
   });
 
   Ok(())

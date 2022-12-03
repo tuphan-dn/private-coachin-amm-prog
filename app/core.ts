@@ -37,6 +37,219 @@ class PrivateCoachingAmm {
       this._provider,
     )
   }
+
+  /**
+   * Get list of event names
+   */
+  get events() {
+    return this.program.idl.events.map(({ name }) => name)
+  }
+
+  /**
+   * Listen changes on an event
+   * @param eventName Event name
+   * @param callback Event handler
+   * @returns Listener id
+   */
+  addListener = <T extends keyof PrivateCoachingAmmProgEvents>(
+    eventName: T,
+    callback: (data: PrivateCoachingAmmProgEvents[T]) => void,
+  ) => {
+    return this.program.addEventListener(
+      eventName as string,
+      (data: PrivateCoachingAmmProgEvents[T]) => callback(data),
+    )
+  }
+
+  /**
+   * Remove listener by its id
+   * @param listenerId Listener id
+   * @returns
+   */
+  removeListener = async (listenerId: number) => {
+    try {
+      await this.program.removeEventListener(listenerId)
+    } catch (er: any) {
+      console.warn(er.message)
+    }
+  }
+
+  /**
+   * Parse pool buffer data.
+   * @param data Pool buffer data.
+   * @returns Pool readable data.
+   */
+  parsePoolData = (data: Buffer): PoolData => {
+    return this.program.coder.accounts.decode('pool', data)
+  }
+
+  /**
+   * Get pool data.
+   * @param poolAddress Pool address.
+   * @returns Pool readable data.
+   */
+  getPoolData = async (poolAddress: string): Promise<PoolData> => {
+    return this.program.account.pool.fetch(poolAddress)
+  }
+
+  /**
+   * Derive treasurer address of a pool.
+   * @param poolAddress The pool address.
+   * @returns Treasurer address that holds the secure token treasuries of the pool.
+   */
+  deriveTreasurerAddress = async (poolAddress: string) => {
+    if (!isAddress(poolAddress)) throw new Error('Invalid pool address')
+    const [treasurerPublicKey] = await web3.PublicKey.findProgramAddress(
+      [Buffer.from('treasurer'), new web3.PublicKey(poolAddress).toBuffer()],
+      this.program.programId,
+    )
+    return treasurerPublicKey.toBase58()
+  }
+
+  /**
+   * Create a new pool
+   * @param opt.x Amount of X tokens
+   * @param opt.y Amount of Y tokens
+   * @param opt.xTokenAddress X mint address
+   * @param opt.yTokenAddress Y mint address
+   * @param opt.pool (Optional) Pool keypair
+   * @param sendAndConfirm (Optional) Send and confirm the transaction immediately.
+   * @returns { tx, txId, poolAddress }
+   */
+  createPool = async (
+    {
+      x,
+      y,
+      xTokenAddress,
+      yTokenAddress,
+      pool = web3.Keypair.generate(),
+    }: {
+      x: BN
+      y: BN
+      xTokenAddress: string
+      yTokenAddress: string
+      pool?: web3.Keypair
+    },
+    sendAndConfirm = true,
+  ) => {
+    if (!isAddress(xTokenAddress) || !isAddress(yTokenAddress))
+      throw new Error('Invalid token address')
+    if (!x.gt(new BN(0)) || !y.gt(new BN(0)))
+      throw new Error('Token amounts must be greater than zero')
+
+    const xTokenPublicKey = new web3.PublicKey(xTokenAddress)
+    const yTokenPublicKey = new web3.PublicKey(yTokenAddress)
+
+    const srcXAccountPublicKey = await utils.token.associatedAddress({
+      mint: xTokenPublicKey,
+      owner: this._provider.wallet.publicKey,
+    })
+    const srcYAccountPublicKey = await utils.token.associatedAddress({
+      mint: yTokenPublicKey,
+      owner: this._provider.wallet.publicKey,
+    })
+
+    const treasurerAddress = await this.deriveTreasurerAddress(
+      pool.publicKey.toBase58(),
+    )
+    const treasurerPublicKey = new web3.PublicKey(treasurerAddress)
+    const xTreasuryPublicKey = await utils.token.associatedAddress({
+      mint: xTokenPublicKey,
+      owner: treasurerPublicKey,
+    })
+    const yTreasuryPublicKey = await utils.token.associatedAddress({
+      mint: yTokenPublicKey,
+      owner: treasurerPublicKey,
+    })
+
+    const builder = this.program.methods
+      .createPool(x, y)
+      .accounts({
+        authority: this._provider.wallet.publicKey,
+        pool: pool.publicKey,
+        xToken: xTokenPublicKey,
+        yToken: yTokenPublicKey,
+        srcXAccount: srcXAccountPublicKey,
+        srcYAccount: srcYAccountPublicKey,
+        treasurer: treasurerPublicKey,
+        xTreasury: xTreasuryPublicKey,
+        yTreasury: yTreasuryPublicKey,
+        systemProgram: web3.SystemProgram.programId,
+        tokenProgram: utils.token.TOKEN_PROGRAM_ID,
+        associatedTokenProgram: utils.token.ASSOCIATED_PROGRAM_ID,
+        rent: web3.SYSVAR_RENT_PUBKEY,
+      })
+      .signers([pool])
+
+    const tx = await builder.transaction()
+    const txId = sendAndConfirm
+      ? await builder.rpc({ commitment: 'confirmed' })
+      : ''
+
+    return { tx, txId, poolAddress: pool.publicKey.toBase58() }
+  }
+
+  swap = async (
+    {
+      a,
+      poolAddress,
+    }: {
+      a: BN
+      poolAddress: string
+    },
+    sendAndConfirm = true,
+  ) => {
+    if (!isAddress(poolAddress)) throw new Error('Invalid pool address')
+    if (!a.gt(new BN(0)))
+      throw new Error('The token amount must be greater than zero')
+
+    const poolPublicKey = new web3.PublicKey(poolAddress)
+    const { xToken: xTokenPublicKey, yToken: yTokenPublicKey } =
+      await this.getPoolData(poolAddress)
+
+    const srcXAccountPublicKey = await utils.token.associatedAddress({
+      mint: xTokenPublicKey,
+      owner: this._provider.wallet.publicKey,
+    })
+    const dstYAccountPublicKey = await utils.token.associatedAddress({
+      mint: yTokenPublicKey,
+      owner: this._provider.wallet.publicKey,
+    })
+
+    const treasurerAddress = await this.deriveTreasurerAddress(poolAddress)
+    const treasurerPublicKey = new web3.PublicKey(treasurerAddress)
+    const xTreasuryPublicKey = await utils.token.associatedAddress({
+      mint: xTokenPublicKey,
+      owner: treasurerPublicKey,
+    })
+    const yTreasuryPublicKey = await utils.token.associatedAddress({
+      mint: yTokenPublicKey,
+      owner: treasurerPublicKey,
+    })
+
+    const builder = this.program.methods.swap(a).accounts({
+      authority: this._provider.wallet.publicKey,
+      pool: poolPublicKey,
+      xToken: xTokenPublicKey,
+      yToken: yTokenPublicKey,
+      srcXAccount: srcXAccountPublicKey,
+      dstYAccount: dstYAccountPublicKey,
+      treasurer: treasurerPublicKey,
+      xTreasury: xTreasuryPublicKey,
+      yTreasury: yTreasuryPublicKey,
+      systemProgram: web3.SystemProgram.programId,
+      tokenProgram: utils.token.TOKEN_PROGRAM_ID,
+      associatedTokenProgram: utils.token.ASSOCIATED_PROGRAM_ID,
+      rent: web3.SYSVAR_RENT_PUBKEY,
+    })
+
+    const tx = await builder.transaction()
+    const txId = sendAndConfirm
+      ? await builder.rpc({ commitment: 'confirmed' })
+      : ''
+
+    return { tx, txId }
+  }
 }
 
 export default PrivateCoachingAmm

@@ -78,7 +78,7 @@ describe('private-coaching-amm-prog', () => {
   it('Create pool', async () => {
     // Add your test here.
     const txId = await program.methods
-      .createPpol(new BN('500000000000'), new BN('500000000000'))
+      .createPool(new BN('500000000000'), new BN('500000000000'))
       .accounts({
         authority: provider.wallet.publicKey,
         pool: pool.publicKey,

@@ -19,7 +19,7 @@ pub mod private_coaching_amm_prog {
 
   use super::*;
 
-  pub fn create_ppol(ctx: Context<CreatePool>, x: u64, y: u64) -> Result<()> {
+  pub fn create_pool(ctx: Context<CreatePool>, x: u64, y: u64) -> Result<()> {
     create_pool::exec(ctx, x, y)
   }
 
