@@ -1,7 +1,7 @@
 [features]
 seeds = false
 [programs.localnet]
-private_coaching_amm_prog = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+private_coaching_amm_prog = "AT9ApNUHABR9bLHzBbKKz2u19U6tzp4SifkKBfX4SpqM"
 
 [registry]
 url = "https://anchor.projectserum.com"
