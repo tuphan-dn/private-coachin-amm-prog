@@ -36,7 +36,7 @@ pub struct CreatePool<'info> {
   #[account(
     init,
     payer = authority,
-    associated_token::mint = x_token,
+    associated_token::mint = y_token,
     associated_token::authority = treasurer
   )]
   pub y_treasury: Box<Account<'info, token::TokenAccount>>,
